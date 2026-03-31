@@ -36,7 +36,15 @@ load_env() {
   done
 }
 
+# Values exported in the invoking shell win over the same keys in .env (one-off overrides).
+if [[ -n ${JARVYS_OLLAMA_MODEL+x} ]]; then _jarvys_cli_model="$JARVYS_OLLAMA_MODEL"; fi
+if [[ -n ${OLLAMA_API_BASE+x} ]]; then _jarvys_cli_ollama_base="$OLLAMA_API_BASE"; fi
+if [[ -n ${AGENT_GIT_SYNC+x} ]]; then _jarvys_cli_git_sync="$AGENT_GIT_SYNC"; fi
 load_env
+if [[ -n ${_jarvys_cli_model+x} ]]; then export JARVYS_OLLAMA_MODEL="$_jarvys_cli_model"; fi
+if [[ -n ${_jarvys_cli_ollama_base+x} ]]; then export OLLAMA_API_BASE="$_jarvys_cli_ollama_base"; fi
+if [[ -n ${_jarvys_cli_git_sync+x} ]]; then export AGENT_GIT_SYNC="$_jarvys_cli_git_sync"; fi
+unset _jarvys_cli_model _jarvys_cli_ollama_base _jarvys_cli_git_sync
 
 if [[ -d "${REPO_ROOT}/scripts" ]]; then
   JARVYS_SCRIPTS_DIR="${REPO_ROOT}/scripts"
@@ -271,7 +279,7 @@ step_coder() {
   run_agent_jarvys "coding" \
     "test -n \"\$(find \"$TASKDIR\" -maxdepth 1 \\( -name 'NEW-*.md' -o -name 'WIP-*.md' \\) 2>/dev/null)\"" \
     "002-coder/CODER.md" \
-    "Start coding now. Prefer a NEW task if any (rename to WIP on start); otherwise continue an existing WIP to UNTESTED. Implement in this repo (app/, routes/, resources/js/, tests/, database/ as applicable). Do your job."
+    "Start coding now. Prefer a NEW task if any (rename to WIP on start); otherwise continue an existing WIP to UNTESTED. Implement in this repo (app/, routes/, resources/js/, tests/, database/ as applicable). Use only real repository-relative paths (e.g. agents/tasks/, scripts/); never invent a path/to/ or path/to/scripts/ prefix. Do your job."
 }
 
 step_tester() {
