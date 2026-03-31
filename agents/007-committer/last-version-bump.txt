@@ -1,0 +1,1 @@
+# Optional: last semantic version bump UTC (one line), if your team tracks cadence here.

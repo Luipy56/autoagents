@@ -1,0 +1,4 @@
+.env
+.venv/
+.aider*
+ssh-amvara-probe.log
