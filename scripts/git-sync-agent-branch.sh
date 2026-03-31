@@ -21,8 +21,13 @@ BRANCH="${AGENT_GIT_BRANCH:-agentdevelop}"
 git fetch origin
 
 if ! git rev-parse --verify --quiet "origin/${BRANCH}" >/dev/null; then
-  echo "git-sync-agent-branch: origin/${BRANCH} missing after fetch" >&2
-  exit 1
+  if [[ "$BRANCH" == "agentdevelop" ]] && git rev-parse --verify --quiet "origin/main" >/dev/null; then
+    echo "git-sync-agent-branch: origin/agentdevelop missing; using main (set AGENT_GIT_BRANCH=agentdevelop when your remote has it)" >&2
+    BRANCH=main
+  else
+    echo "git-sync-agent-branch: origin/${BRANCH} missing after fetch" >&2
+    exit 1
+  fi
 fi
 
 current="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"

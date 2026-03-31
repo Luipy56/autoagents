@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Optional: SSH LocalForward to a remote Ollama host. Not needed for local Ollama.
-# Loads bundle .env; uses scripts/jarvys-tunnel-lib.sh (set JARVYS_TUNNEL_STYLE and SSH vars — see .env.example / docs/jarvys-network.md).
+# Loads bundle .env; uses scripts/jarvys-tunnel-lib.sh (set JARVYS_TUNNEL_STYLE and SSH vars in .env — see docs/jarvys-network.md).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

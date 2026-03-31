@@ -77,7 +77,7 @@ Alternate layout: copy **`agents/`** and **`scripts/`** into the app tree (or sy
 
 ## Ollama connectivity
 
-- **Default:** local Ollama; keep **`JARVYS_AUTO_SSH_TUNNEL=0`** (see **`.env.example`**).
+- **Default:** local Ollama; keep **`JARVYS_AUTO_SSH_TUNNEL=0`** in **`.env`** (copy from **`.env.example`**).
 - **Remote Ollama:** set **`JARVYS_AUTO_SSH_TUNNEL=1`** and all **`JARVYS_SSH_*`** / **`JARVYS_OLLAMA_REMOTE_HOST`** values in **`.env`** (no hardcoded hosts in the repo), or run **`scripts/start-ollama-tunnel.sh`** manually. Patterns: **`docs/jarvys-network.md`**.
 - Before **`log`**, **`feat`**, **`coder`**, **`tester`**, **`closing-review`**, **`committer`**, and the **no-arg loop**, the script runs a quick **`GET /api/tags`** check (unless **`JARVYS_SKIP_OLLAMA_GATE=1`**). **`ollama-check`** still runs a fuller smoke (**tags** + **generate**).
 
