@@ -7,7 +7,8 @@ cd "$ROOT"
 
 echo "== bash syntax =="
 for f in jarvys-agent-loop.sh scripts/git-sync-agent-branch.sh scripts/move-agent-task-to-done.sh \
-         scripts/smoke-ollama.sh scripts/start-ollama-tunnel.sh scripts/jarvys-tunnel-lib.sh; do
+         scripts/smoke-ollama.sh scripts/start-ollama-tunnel.sh scripts/jarvys-tunnel-lib.sh \
+         scripts/ssh-config-probe.example.sh; do
   bash -n "$f"
   echo "  OK $f"
 done

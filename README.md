@@ -2,7 +2,7 @@
 
 Portable **task-file pipeline** (same states and cycle as the Laravel ecommerce agent loop) with **Aider** + **Ollama** instead of `cursor-agent`. You keep editing in your own editor; the loop runs in a terminal.
 
-**Scope:** this folder is **orchestration, prompts, and scripts** only. **Application code** belongs in whatever **Git repository** you point Jarvys at (`JARVYS_REPO_ROOT` or copy `agents/` + `scripts/` into that repo). This bundle does not ship a product app.
+**Scope:** this folder is **orchestration, prompts, and scripts** only. **Application code** lives in the **host repository** (the parent of `jarvys-team/` when you embed this bundle, or the directory you set with **`JARVYS_REPO_ROOT`**). This bundle does not ship a product app.
 
 ## What’s in the bundle
 
@@ -13,7 +13,7 @@ Portable **task-file pipeline** (same states and cycle as the Laravel ecommerce 
 | `scripts/git-sync-agent-branch.sh` | Fetch + checkout integration branch + pull --rebase --autostash. |
 | `scripts/move-agent-task-to-done.sh` | Move **`CLOSED-`** tasks to **`done/YYYY/MM/DD/`**. |
 | `scripts/start-ollama-tunnel.sh` | Optional SSH **LocalForward** to remote Ollama (see `docs/jarvys-network.md`). |
-| `docs/jarvys-network.md` | Optional remote topology (amvara8/amvara4), tunnel, smoke `curl` commands. |
+| `docs/jarvys-network.md` | Remote Ollama / SSH tunnel patterns (placeholders only; no secrets in git). |
 | `GLOBAL_RULES.md` | Git, tasks, security, verification, no co-author branding. |
 
 The loop passes **`--no-show-model-warnings`** and **`--no-show-release-notes`** to Aider so scripted runs do not open browser tabs for [model warnings](https://aider.chat/docs/llms/warnings.html) or [release notes](https://aider.chat/HISTORY.html#release-notes).
@@ -42,28 +42,44 @@ This checks shell syntax and prints **`aider --version`** if a venv or `PATH` pr
 
   The loop uses **`aider` on `PATH`**, or **`./.venv/bin/aider`** if present, or **`JARVYS_AIDER`** to point to a binary. See [Ollama · Aider](https://aider.chat/docs/llms/ollama.html).
 - **Ollama** on the same machine at **`OLLAMA_API_BASE`** (default `http://127.0.0.1:11434`). For a **remote** Ollama, set **`JARVYS_AUTO_SSH_TUNNEL=1`** and the tunnel variables in `.env`, or run **`scripts/start-ollama-tunnel.sh`** — see **`docs/jarvys-network.md`**.
-- **Git** repository at **`JARVYS_REPO_ROOT`** (see below) with **`scripts/`** from this bundle at the repo root, unless you set **`AGENT_GIT_SYNC=0`** to skip sync.
+- **Git** repository for your application. **`jarvys-agent-loop.sh`** runs **`git-sync-agent-branch.sh`** against that repo (see **Nested install**). Use **`AGENT_GIT_SYNC=0`** to skip sync if you have no remote or no script copy yet.
+
+## Nested install (recommended)
+
+Place this repo as **`your-app/jarvys-team/`** (folder name **`jarvys-team`** by default, or any name if the **parent directory** is the git root). Then:
+
+- **`REPO_ROOT`** defaults to **`your-app/`** when **`your-app/.git`** exists (nested bundle) or when the bundle folder is named **`jarvys-team`** (or **`JARVYS_BUNDLE_DIRNAME`**). If **`jarvys-team/.git`** exists (this bundle is its own repo), **`REPO_ROOT`** stays **`jarvys-team/`**. **Aider** runs with `cd` into **`REPO_ROOT`**.
+- **`JARVYS_REPO_ROOT`** overrides that path if the bundle folder is renamed or lives elsewhere.
+- **`JARVYS_BUNDLE_DIRNAME`** (default **`jarvys-team`**) controls which directory name triggers “parent = app root”.
+
+**`.env` loading:** if both exist, **`your-app/.env`** is loaded first, then **`your-app/jarvys-team/.env`** (later wins on duplicate keys). Put app-wide secrets in the parent; put **`OLLAMA_API_BASE`** / **`JARVYS_*`** in either file.
+
+**Git sync:** the loop uses **`your-app/scripts/git-sync-agent-branch.sh`** if present; otherwise **`jarvys-team/scripts/git-sync-agent-branch.sh`**, with **`JARVYS_GIT_ROOT`** set to the app root so fetch/pull runs on **`your-app`**, not inside **`jarvys-team/`** only.
+
+Standalone clone (directory not named **`jarvys-team`**): **`REPO_ROOT`** defaults to the bundle directory unless you set **`JARVYS_REPO_ROOT`**.
 
 ## Configuration
 
-1. Copy **`.env.example`** to **`.env`** in this directory (or export variables in your shell).
+1. Copy **`.env.example`** to **`.env`** (parent repo, `jarvys-team/`, or both; see above).
 
    - **`OLLAMA_API_BASE`** — Ollama HTTP root (no `/v1` suffix). Local: `http://127.0.0.1:11434`. With SSH forward to the same local port, use the matching URL.
-   - **`JARVYS_OLLAMA_MODEL`** — Tag present on the server (e.g. **`qwen3:latest`**; see `docs/jarvys-network.md`).
+   - **`JARVYS_OLLAMA_MODEL`** — Tag present on the server (e.g. **`qwen3:latest`**).
+   - **`JARVYS_SKIP_OLLAMA_GATE=1`** — skip the fast **`GET /api/tags`** check at startup (offline only).
 
-2. **Repo root:** If you run **`./jarvys-agent-loop.sh`** from **this** directory (not from `…/agents/`), the script treats **this folder** as the Git root unless you set:
+2. Export **`OLLAMA_API_BASE`**, **`JARVYS_OLLAMA_MODEL`**, **`AGENT_GIT_SYNC`**, **`JARVYS_REPO_ROOT`**, or **`JARVYS_BUNDLE_DIRNAME`** before running the script to override values from `.env`.
 
-   ```bash
-   export JARVYS_REPO_ROOT=/path/to/your/application
-   ```
+Alternate layout: copy **`agents/`** and **`scripts/`** into the app tree (or symlink) and run **`./agents/jarvys-agent-loop.sh`** from the app root; paths resolve as before.
 
-   To attach Jarvys to an existing app, copy **`agents/`** and **`scripts/`** into that app’s tree (or symlink) so **`REPO_ROOT/scripts/git-sync-agent-branch.sh`** exists.
+## Publishing to GitHub
+
+- **Never commit `.env`** (it is gitignored). Use **`.env.example`** with placeholders only.
+- Do not commit internal hostnames, IPs, or SSH users in docs; keep **`docs/jarvys-network.md`** generic.
 
 ## Ollama connectivity
 
 - **Default:** local Ollama; keep **`JARVYS_AUTO_SSH_TUNNEL=0`** (see **`.env.example`**).
-- **Remote Ollama:** set **`JARVYS_AUTO_SSH_TUNNEL=1`** and tunnel settings, or start **`scripts/start-ollama-tunnel.sh`** manually. Topology examples (**amvara8** / **amvara4**): **`docs/jarvys-network.md`**.
-- Smoke: **`./jarvys-agent-loop.sh ollama-check`**.
+- **Remote Ollama:** set **`JARVYS_AUTO_SSH_TUNNEL=1`** and all **`JARVYS_SSH_*`** / **`JARVYS_OLLAMA_REMOTE_HOST`** values in **`.env`** (no hardcoded hosts in the repo), or run **`scripts/start-ollama-tunnel.sh`** manually. Patterns: **`docs/jarvys-network.md`**.
+- Before **`log`**, **`feat`**, **`coder`**, **`tester`**, **`closing-review`**, **`committer`**, and the **no-arg loop**, the script runs a quick **`GET /api/tags`** check (unless **`JARVYS_SKIP_OLLAMA_GATE=1`**). **`ollama-check`** still runs a fuller smoke (**tags** + **generate**).
 
 ## Usage
 

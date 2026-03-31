@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Sync local checkout with origin/<branch> (fetch + pull --rebase).
 # Copy lives in Jarvys bundle; target repo should keep this under scripts/ at repo root.
+# When the script lives under jarvys-team/scripts/, set JARVYS_GIT_ROOT to the application repo root.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="${JARVYS_GIT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$ROOT"
 
 if [[ "${AGENT_GIT_SYNC:-1}" == "0" ]]; then

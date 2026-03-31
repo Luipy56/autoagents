@@ -7,6 +7,9 @@
 # Or from this package root:
 #   ./jarvys-agent-loop.sh [COMMAND]
 #
+# Nested install: when this directory is named jarvys-team/ (or JARVYS_BUNDLE_DIRNAME),
+# the application git root defaults to the parent directory. Override with JARVYS_REPO_ROOT.
+#
 # Requires: aider on PATH (pip install aider-chat), Ollama reachable via OLLAMA_API_BASE.
 # Task dir: agents/tasks/ (sibling of agents/ when script is under agents/).
 
@@ -14,48 +17,113 @@ set -euo pipefail
 
 SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 
+AGENTS_LAYOUT=0
 if [[ "$(basename "$SCRIPTDIR")" == "agents" ]]; then
-  REPO_ROOT="$(cd "${SCRIPTDIR}/.." && pwd)"
+  AGENTS_LAYOUT=1
   TASKDIR="${SCRIPTDIR}/tasks"
   AGENT_PROMPT_ROOT="${SCRIPTDIR}"
 else
-  REPO_ROOT="${JARVYS_REPO_ROOT:-$SCRIPTDIR}"
   TASKDIR="${SCRIPTDIR}/agents/tasks"
   AGENT_PROMPT_ROOT="${SCRIPTDIR}/agents"
 fi
-
-load_env() {
-  for d in "$SCRIPTDIR" "$REPO_ROOT"; do
-    if [[ -f "$d/.env" ]]; then
-      set -a
-      # shellcheck source=/dev/null
-      source "$d/.env"
-      set +a
-      break
-    fi
-  done
-}
 
 # Values exported in the invoking shell win over the same keys in .env (one-off overrides).
 if [[ -n ${JARVYS_OLLAMA_MODEL+x} ]]; then _jarvys_cli_model="$JARVYS_OLLAMA_MODEL"; fi
 if [[ -n ${OLLAMA_API_BASE+x} ]]; then _jarvys_cli_ollama_base="$OLLAMA_API_BASE"; fi
 if [[ -n ${AGENT_GIT_SYNC+x} ]]; then _jarvys_cli_git_sync="$AGENT_GIT_SYNC"; fi
-load_env
+if [[ -n ${JARVYS_REPO_ROOT+x} ]]; then _jarvys_cli_repo="$JARVYS_REPO_ROOT"; fi
+if [[ -n ${JARVYS_BUNDLE_DIRNAME+x} ]]; then _jarvys_cli_bundle="$JARVYS_BUNDLE_DIRNAME"; fi
+
+# Directory for the first .env file (parent app when nested). Uses only pre-.env shell state.
+jarvys_first_dotenv_root() {
+  if [[ "$AGENTS_LAYOUT" == 1 ]]; then
+    (cd "${SCRIPTDIR}/.." && pwd)
+    return
+  fi
+  if [[ -n "${_jarvys_cli_repo:-}" ]]; then
+    (cd "${_jarvys_cli_repo}" && pwd)
+    return
+  fi
+  if [[ -e "$SCRIPTDIR/.git" ]]; then
+    printf '%s' "$SCRIPTDIR"
+    return
+  fi
+  local parent bundle
+  parent="$(cd "${SCRIPTDIR}/.." && pwd)"
+  if [[ "$parent" != "$SCRIPTDIR" && -e "$parent/.git" ]]; then
+    printf '%s' "$parent"
+    return
+  fi
+  bundle="${_jarvys_cli_bundle:-${JARVYS_BUNDLE_DIRNAME:-jarvys-team}}"
+  if [[ "$(basename "$SCRIPTDIR")" == "$bundle" ]]; then
+    printf '%s' "$parent"
+    return
+  fi
+  printf '%s' "$SCRIPTDIR"
+}
+
+load_env_files() {
+  local first_root
+  first_root="$(jarvys_first_dotenv_root)"
+  if [[ -f "$first_root/.env" ]]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$first_root/.env"
+    set +a
+  fi
+  if [[ -f "$SCRIPTDIR/.env" && "$SCRIPTDIR" != "$first_root" ]]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$SCRIPTDIR/.env"
+    set +a
+  fi
+}
+
+load_env_files
+
 if [[ -n ${_jarvys_cli_model+x} ]]; then export JARVYS_OLLAMA_MODEL="$_jarvys_cli_model"; fi
 if [[ -n ${_jarvys_cli_ollama_base+x} ]]; then export OLLAMA_API_BASE="$_jarvys_cli_ollama_base"; fi
 if [[ -n ${_jarvys_cli_git_sync+x} ]]; then export AGENT_GIT_SYNC="$_jarvys_cli_git_sync"; fi
-unset _jarvys_cli_model _jarvys_cli_ollama_base _jarvys_cli_git_sync
+if [[ -n ${_jarvys_cli_repo+x} ]]; then export JARVYS_REPO_ROOT="$_jarvys_cli_repo"; fi
+if [[ -n ${_jarvys_cli_bundle+x} ]]; then export JARVYS_BUNDLE_DIRNAME="$_jarvys_cli_bundle"; fi
+unset _jarvys_cli_model _jarvys_cli_ollama_base _jarvys_cli_git_sync _jarvys_cli_repo _jarvys_cli_bundle
 
-if [[ -d "${REPO_ROOT}/scripts" ]]; then
-  JARVYS_SCRIPTS_DIR="${REPO_ROOT}/scripts"
-else
-  JARVYS_SCRIPTS_DIR="${SCRIPTDIR}/scripts"
-fi
+jarvys_resolve_repo_root() {
+  if [[ "$AGENTS_LAYOUT" == 1 ]]; then
+    REPO_ROOT="$(cd "${SCRIPTDIR}/.." && pwd)"
+    return
+  fi
+  if [[ -n "${JARVYS_REPO_ROOT:-}" ]]; then
+    REPO_ROOT="$(cd "$JARVYS_REPO_ROOT" && pwd)"
+    return
+  fi
+  if [[ -e "$SCRIPTDIR/.git" ]]; then
+    REPO_ROOT="$SCRIPTDIR"
+    return
+  fi
+  local parent bundle
+  parent="$(cd "${SCRIPTDIR}/.." && pwd)"
+  if [[ "$parent" != "$SCRIPTDIR" && -e "$parent/.git" ]]; then
+    REPO_ROOT="$parent"
+    return
+  fi
+  bundle="${JARVYS_BUNDLE_DIRNAME:-jarvys-team}"
+  if [[ "$(basename "$SCRIPTDIR")" == "$bundle" ]]; then
+    REPO_ROOT="$parent"
+    return
+  fi
+  REPO_ROOT="$SCRIPTDIR"
+}
+
+jarvys_resolve_repo_root
+
+# Bundle helpers always live next to this script (not the parent app's scripts/).
+JARVYS_BUNDLE_SCRIPTS_DIR="${SCRIPTDIR}/scripts"
 # shellcheck source=/dev/null
-if [[ -f "${JARVYS_SCRIPTS_DIR}/jarvys-tunnel-lib.sh" ]]; then
-  source "${JARVYS_SCRIPTS_DIR}/jarvys-tunnel-lib.sh"
+if [[ -f "${JARVYS_BUNDLE_SCRIPTS_DIR}/jarvys-tunnel-lib.sh" ]]; then
+  source "${JARVYS_BUNDLE_SCRIPTS_DIR}/jarvys-tunnel-lib.sh"
 else
-  echo "ERROR: missing ${JARVYS_SCRIPTS_DIR}/jarvys-tunnel-lib.sh" >&2
+  echo "ERROR: missing ${JARVYS_BUNDLE_SCRIPTS_DIR}/jarvys-tunnel-lib.sh" >&2
   exit 1
 fi
 
@@ -82,6 +150,16 @@ ollama_reachable() {
   curl -sf --connect-timeout 2 --max-time 8 "$(ollama_tags_url)" >/dev/null 2>&1
 }
 
+# Lightweight gate before sync/Aider (GET /api/tags only). Skipped for help and ollama-check.
+jarvys_gate_ollama_or_exit() {
+  [[ "${JARVYS_SKIP_OLLAMA_GATE:-0}" == "1" ]] && return 0
+  if ! ollama_reachable; then
+    echo "ERROR: Ollama not reachable at $(ollama_tags_url) (set OLLAMA_API_BASE in .env or export before running; JARVYS_SKIP_OLLAMA_GATE=1 to skip)." >&2
+    exit 1
+  fi
+  echo "-----> Ollama gate OK ($(ollama_base_norm)/api/tags)"
+}
+
 try_auto_ssh_tunnel() {
   [[ "${JARVYS_AUTO_SSH_TUNNEL:-0}" == "1" ]] || return 1
   local local_p="${JARVYS_SSH_LOCAL_PORT:-11434}"
@@ -95,7 +173,7 @@ try_auto_ssh_tunnel() {
     return 1
   fi
   if ! "${ssh_cmd[@]}"; then
-    echo "Jarvys: SSH tunnel failed. Check keys and JARVYS_TUNNEL_STYLE (amvara8_local vs amvara4_forward). See docs/jarvys-network.md" >&2
+    echo "Jarvys: SSH tunnel failed. Check keys, JARVYS_TUNNEL_STYLE, and required JARVYS_SSH_* variables in .env. See docs/jarvys-network.md" >&2
     return 1
   fi
   sleep 2
@@ -103,7 +181,7 @@ try_auto_ssh_tunnel() {
     echo "-----> Jarvys: Ollama reachable after tunnel." >&2
     return 0
   fi
-  echo "Jarvys: Tunnel started but GET /api/tags still failed. Match OLLAMA_API_BASE to port ${local_p}; for amvara4_forward set JARVYS_OLLAMA_REMOTE_HOST to amvara8 as seen from amvara4." >&2
+  echo "Jarvys: Tunnel started but GET /api/tags still failed. Match OLLAMA_API_BASE to local port ${local_p}; for amvara4_forward set JARVYS_OLLAMA_REMOTE_HOST to the Ollama host as seen from the bastion." >&2
   return 1
 }
 
@@ -177,13 +255,18 @@ sync_repo() {
     echo "----- git sync (skip: AGENT_GIT_SYNC=0)"
     return 0
   fi
-  local sync_script="${REPO_ROOT}/scripts/git-sync-agent-branch.sh"
-  if [[ ! -f "$sync_script" ]]; then
-    echo "ERROR: missing $sync_script (copy scripts/ from Jarvys bundle or set AGENT_GIT_SYNC=0)" >&2
+  local sync_script=""
+  if [[ -f "${REPO_ROOT}/scripts/git-sync-agent-branch.sh" ]]; then
+    sync_script="${REPO_ROOT}/scripts/git-sync-agent-branch.sh"
+  elif [[ -f "${SCRIPTDIR}/scripts/git-sync-agent-branch.sh" ]]; then
+    sync_script="${SCRIPTDIR}/scripts/git-sync-agent-branch.sh"
+  fi
+  if [[ -z "$sync_script" ]]; then
+    echo "ERROR: missing git-sync-agent-branch.sh (tried \$REPO_ROOT/scripts and jarvys-team/scripts). Copy from the bundle or set AGENT_GIT_SYNC=0." >&2
     exit 1
   fi
   echo "-----> git sync agent branch $(date "+%Y-%m-%d %H:%M:%S") <----"
-  if ! bash "$sync_script"; then
+  if ! JARVYS_GIT_ROOT="$REPO_ROOT" bash "$sync_script"; then
     echo "ERROR: git sync failed (conflicts, network, or missing origin branch). Resolve and retry." >&2
     exit 1
   fi
@@ -346,17 +429,19 @@ Environment:
   AGENT_GIT_BRANCH           Integration branch (default: agentdevelop).
   OLLAMA_API_BASE            Ollama base URL (default: http://127.0.0.1:11434).
   JARVYS_OLLAMA_MODEL        Model tag for aider (default: qwen3:latest).
-  JARVYS_REPO_ROOT           When script is not under agents/, repo root (default: same dir as script).
+  JARVYS_REPO_ROOT           Application git root when bundle is nested (overrides auto parent-of-jarvys-team).
+  JARVYS_BUNDLE_DIRNAME      Directory name that triggers nested mode (default: jarvys-team).
+  JARVYS_SKIP_OLLAMA_GATE    If 1, skip the startup GET /api/tags check (default: 0).
   JARVYS_AIDER               Full path to aider binary (optional; else PATH or ./.venv/bin/aider).
   JARVYS_AUTO_SSH_TUNNEL     If 1, try ssh -f -L before Aider when /api/tags fails (default: 0 = local Ollama only).
-  JARVYS_TUNNEL_STYLE        amvara8_local (SSH amvara8→127.0.0.1:11434) or amvara4_forward (SSH amvara4→IP amvara8:11434).
-  JARVYS_SSH_PROXYJUMP       Con amvara8_local: ProxyJump (ej. amvara4 o root@host:60022).
-  JARVYS_OLLAMA_REMOTE_HOST  Con amvara4_forward: host/IP de amvara8 alcanzable DESDE amvara4.
+  JARVYS_TUNNEL_STYLE        amvara8_local (SSH to host, forward remote 127.0.0.1:11434) or amvara4_forward (bastion + private Ollama host). All SSH hosts/ports must be set in .env (no baked-in defaults).
+  JARVYS_SSH_PROXYJUMP       Optional ProxyJump for amvara8_local (e.g. ~/.ssh/config Host name).
+  JARVYS_OLLAMA_REMOTE_HOST  For amvara4_forward: Ollama hostname/IP as reachable from the bastion.
   JARVYS_SSH_BATCHMODE       If 0, allow password prompts (default 1 = fail fast without key).
 
 Aider is invoked with --no-show-model-warnings and --no-show-release-notes (non-interactive; no doc URLs in browser).
 
-Git: each step runs scripts/git-sync-agent-branch.sh first (fetch + checkout + pull --rebase --autostash).
+Git: each step runs git-sync-agent-branch.sh on the app root (JARVYS_GIT_ROOT / REPO_ROOT; see README).
 
 Prompt files live under agents/ (e.g. 002-coder/CODER.md). See README.md.
 EOF
@@ -369,12 +454,30 @@ if [[ -n "${1:-}" ]]; then
       exit 0
       ;;
     ollama-check) cmd_ollama_check ;;
-    log | log-reviewer | 001) step_log_reviewer ;;
-    feat | feature) step_feat ;;
-    coder) step_coder ;;
-    tester) step_tester ;;
-    closing-review | closing-closed) step_closing_review ;;
-    committer) step_committer ;;
+    log | log-reviewer | 001)
+      jarvys_gate_ollama_or_exit
+      step_log_reviewer
+      ;;
+    feat | feature)
+      jarvys_gate_ollama_or_exit
+      step_feat
+      ;;
+    coder)
+      jarvys_gate_ollama_or_exit
+      step_coder
+      ;;
+    tester)
+      jarvys_gate_ollama_or_exit
+      step_tester
+      ;;
+    closing-review | closing-closed)
+      jarvys_gate_ollama_or_exit
+      step_closing_review
+      ;;
+    committer)
+      jarvys_gate_ollama_or_exit
+      step_committer
+      ;;
     *)
       usage
       exit 1
@@ -388,6 +491,8 @@ if ! have_aider; then
   echo "Loop aborted. Single commands will no-op until aider is available." >&2
   exit 1
 fi
+
+jarvys_gate_ollama_or_exit
 
 while true; do
   run_full_cycle

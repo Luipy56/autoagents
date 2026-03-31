@@ -13,6 +13,6 @@ Markdown prompts for **Aider** + **Ollama** (see **`jarvys-agent-loop.sh`**). Pa
 
 Workflow: **`GLOBAL_RULES.md`**. Task rules: **`tasks/README.md`**.
 
-**Git:** Before editing the repo, sync with **`./scripts/git-sync-agent-branch.sh`**. **`jarvys-agent-loop.sh`** runs it at the start of each step unless **`AGENT_GIT_SYNC=0`**. Branch: **`AGENT_GIT_BRANCH`** (default **`agentdevelop`**).
+**Git:** Before editing the app repo, sync with **`git-sync-agent-branch.sh`** (from the app’s **`scripts/`** or from **`jarvys-team/scripts/`** when nested). **`jarvys-agent-loop.sh`** runs it at the start of each step unless **`AGENT_GIT_SYNC=0`**. Branch: **`AGENT_GIT_BRANCH`** (default **`agentdevelop`**).
 
 **Executor:** [Aider](https://aider.chat/) with **`ollama_chat/<model>`** and **`OLLAMA_API_BASE`** pointing at your Ollama instance (see **`docs/jarvys-network.md`**).
