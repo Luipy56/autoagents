@@ -1,12 +1,12 @@
-# Task workflow (Jarvys Team)
+# Task workflow (autoagents)
 
-Tasks move through a single pipeline from creation to closure. **Before renaming or editing task files**, sync the integration branch with **`./scripts/git-sync-agent-branch.sh`** (multi-agent workflow; **`jarvys-agent-loop.sh`** does this each step unless **`AGENT_GIT_SYNC=0`**).
+Tasks move through a single pipeline from creation to closure. See project agent-loop docs (if present) for roles, GitHub Issues labels, and branch rules. **Before renaming or editing task files**, sync the **integration branch** with **`./scripts/git-sync-development.sh`** (or the project equivalent; **`agent-loop.sh`** does this each step).
 
 ## Filename pattern
 
-`<STATUS>-<YYYYMMDD-HHMM>-<slug>.md`
+`<STATUS>-<GITHUB-ISSUE-NUMBER>-<YYYYMMDD-HHMM>-<slug>.md`
 
-Examples: `NEW-20260323-1030-fix-checkout-validation.md`, `CLOSED-20260323-1200-fix-checkout-validation.md`
+Examples: `NEW-1234-20260323-1030-haproxy-503-on-orders.md`, `CLOSED-1234-20260323-1200-fix-login-banner.md`
 
 The **`<YYYYMMDD>`** segment (8 digits after the first `-`) is used to place archived tasks under **`done/YYYY/MM/DD/`** (see below). When renaming a task to **`CLOSED-…`**, use the **calendar day that work finished** (UTC or your team convention) in `YYYYMMDD` so each day’s folder reflects tasks completed that day.
 
@@ -16,7 +16,7 @@ The **`<YYYYMMDD>`** segment (8 digits after the first `-`) is used to place arc
 |--------------|--------|
 | **new**      | Task is defined and not yet started. |
 | **feat**     | Feature-sized task (optional parallel queue). |
-| **wip**      | Work in progress. |
+| **wip**      | Work in progress until implemented. When implemented rename **WIP*.md** to **UNTESTED*.md** |
 | **untested** | Implementation done; **Testing instructions** appended; waiting for tester. |
 | **testing**  | Tester is running verification. |
 | **closed**   | Verified; ready for closing reviewer to archive. |
@@ -39,8 +39,10 @@ Closed tasks are **not** kept in a single flat **`done/`** directory. After the 
 agents/tasks/done/<YYYY>/<MM>/<DD>/<same-filename>.md
 ```
 
-- **`<YYYY>`**, **`<MM>`**, and **`<DD>`** come from the **8-digit date in the filename** (`YYYYMMDD` right after the status prefix), not from “today” when you run the script.
+- **`<YYYY>`**, **`<MM>`**, and **`<DD>`** come from the **8-digit date in the filename** (`YYYYMMDD` right after the status prefix), not from “today” when you run the script.  
+  Example: `CLOSED-20260323-1200-slug.md` → **`agents/tasks/done/2026/03/23/CLOSED-20260323-1200-slug.md`**
 - **Same basename** as in **`agents/tasks/`**; only the directory changes.
+- One folder per **calendar day**; all tasks whose `CLOSED-` stamp shares that day live in the same **`DD`** folder.
 
 **Helper (recommended):** from repo root,
 
@@ -48,9 +50,9 @@ agents/tasks/done/<YYYY>/<MM>/<DD>/<same-filename>.md
 ./scripts/move-agent-task-to-done.sh agents/tasks/CLOSED-20260323-1200-example-slug.md
 ```
 
-The script only accepts **`CLOSED-`** filenames.
+The script creates **`done/YYYY/MM/DD`** if needed and moves the file. It only accepts **`CLOSED-`** filenames.
 
-See **`done/README.md`** for a short index of the archive tree.
+See **`done/README.md`** for a short index of the archive tree (when present).
 
 ## Rules of thumb
 

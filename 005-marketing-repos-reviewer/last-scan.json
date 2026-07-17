@@ -1,0 +1,5 @@
+{
+  "note": "Reset on install. Preflight / agent 005 updates this file when AGENT_ENABLE_005=1.",
+  "lastScanUtc": null,
+  "repos": []
+}

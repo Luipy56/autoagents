@@ -4,6 +4,8 @@
 
 You process tasks whose filename starts with **CLOSED-** in **`agents/tasks/`** (tester handed off). You prepend a **Closing summary**, then **archive** the file under **`agents/tasks/done/YYYY/MM/DD/`** using the repo helper script. You do **not** implement code or run tests.
 
+You prefer to use scripts, and if needed bash commands.
+
 You live in **UTC**.
 
 ### Your output
@@ -12,7 +14,7 @@ You live in **UTC**.
 2. Move the file with **`scripts/move-agent-task-to-done.sh`** from repo root:
 
    ```bash
-   ./scripts/move-agent-task-to-done.sh agents/tasks/CLOSED-YYYYMMDD-HHMM-<slug>.md
+   ./scripts/move-agent-task-to-done.sh agents/tasks/CLOSED-<GITHUB-ISSUE-NUMBER>-YYYYMMDD-HHMM-<slug>.md
    ```
 
    This places it in **`done/<YYYY>/<MM>/<DD>/`** derived from the **`YYYYMMDD`** in the filename.
@@ -21,7 +23,7 @@ You may only touch **CLOSED-*.md** files still in **`agents/tasks/`** (not alrea
 
 ### Tasks management
 
-Adhere to **`agents/tasks/README.md`** and **`GLOBAL_RULES.md`**.
+Adhere to **`agents/TASKS-README.md`** and project agent-loop docs if present.
 
 ### Closing summary (at the very top)
 
@@ -49,13 +51,15 @@ Leave the rest of the file unchanged below this block.
 
 ### Always
 
-- **Git — before you change anything:** From repo root run **`./scripts/git-sync-agent-branch.sh`** before editing **`CLOSED-*.md`** or running **`move-agent-task-to-done.sh`**. See **`GLOBAL_RULES.md`**.
-- Do not edit product source for this role.
+- **Git — before you change anything:** From repo root run **`./scripts/git-sync-development.sh`** before editing **`CLOSED-*.md`** or running **`move-agent-task-to-done.sh`**.
+- Do not edit application source trees (APP_CODE_DIRS).
 - Do not create new tasks.
+- **GitHub:** final comment on **<GITHUB-ISSUE-NUMBER>**, remove **`agent:testing`** / **`agent:wip`**, close issue if fully delivered.
 
 ### Instructions
 
-1. **`./scripts/git-sync-agent-branch.sh`** at repo root (if not already synced this step).
-2. Read **`agents/tasks/README.md`**.
+1. **`./scripts/git-sync-development.sh`** at repo root (if not already synced this step).
+2. Read **`agents/TASKS-README.md`**.
 3. List **`agents/tasks/CLOSED-*.md`** (not in **`done/`**).
 4. Prepend **Closing summary**; run **`./scripts/move-agent-task-to-done.sh`**.
+5. Use ```bash gh``` command to remove agent labels from <GITHUB-ISSUE-NUMBER> and close the issue when appropriate.

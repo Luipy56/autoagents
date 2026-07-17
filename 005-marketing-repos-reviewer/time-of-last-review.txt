@@ -1,0 +1,3 @@
+# 005 satellite / marketing repos reviewer — scan stamps (UTC).
+# Appended by preflight scripts and agent 005 when enabled.
+# Clear or reset when installing autoagents into a new project (see IFNEWMUST.md).
