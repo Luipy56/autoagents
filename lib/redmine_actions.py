@@ -35,7 +35,7 @@ TASK_STAMP_RE = re.compile(
     re.IGNORECASE,
 )
 CLOSED_AT_RE = re.compile(
-    r"Closed at \(UTC\):\s*(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2})",
+    r"Closed at \(UTC\):\*?\*?\s*(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2})",
     re.IGNORECASE,
 )
 TASK_ISSUE_RE = re.compile(
