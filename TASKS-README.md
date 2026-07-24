@@ -52,6 +52,8 @@ agents/tasks/done/<YYYY>/<MM>/<DD>/<same-filename>.md
 
 The script creates **`done/YYYY/MM/DD`** if needed and moves the file. It only accepts **`CLOSED-`** filenames.
 
+When Redmine is configured (`REDMINE_API_KEY`, `REDMINE_ISSUE_ID` in `agents/autoagents.env`), the move script also posts an English Textile closing summary **and** a `time_entry` (hours) via `agents/redmine_sync.py`.
+
 See **`done/README.md`** for a short index of the archive tree (when present).
 
 ## Rules of thumb

@@ -1,4 +1,5 @@
 .env
+autoagents.env
 .venv/
 .aider*
 ssh-*-probe.log

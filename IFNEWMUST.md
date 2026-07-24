@@ -90,11 +90,24 @@ AGENT_ENABLE_008=1                     # 0 if no weekly enhancement role
 ### Host repo companions (outside `agents/`, create if missing)
 
 - `scripts/git-sync-development.sh` (or rename consistently and update all references)
-- `scripts/move-agent-task-to-done.sh`
+- `scripts/move-agent-task-to-done.sh` — prefer the copy in **`host-scripts/move-agent-task-to-done.sh`** (includes Redmine note + `time_entry` hook)
 - Optional: `scripts/link-commit-to-github-issues.sh`
 - Optional: `scripts/marketing-repos-preflight.sh`, `scripts/enhancement-reviewer-preflight.sh`
 - GitHub labels: `agent:planned`, `agent:wip`, `agent:untested`, `agent:testing` (create if used)
 - Root `AGENTS.md` pointer: how to run `./agents/agent-loop.sh`, env file, branch policy
+
+### Redmine (optional)
+
+Set in `agents/autoagents.env`:
+
+```bash
+REDMINE_BASE_URL=https://redmine.amvara.de
+REDMINE_API_KEY=...
+REDMINE_ISSUE_ID=7103
+REDMINE_ACTIVITY_ID=10
+```
+
+Requires `agents/redmine_sync.py`, `agents/lib/redmine_actions.py`, and a move script that calls `redmine_sync.py note` before `mv` (see `host-scripts/`).
 
 ---
 

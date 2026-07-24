@@ -55,6 +55,7 @@ Leave the rest of the file unchanged below this block.
 - Do not edit application source trees (APP_CODE_DIRS).
 - Do not create new tasks.
 - **GitHub:** final comment on **<GITHUB-ISSUE-NUMBER>**, remove **`agent:testing`** / **`agent:wip`**, close issue if fully delivered.
+- **Redmine:** `move-agent-task-to-done.sh` posts a completion note + time entry via `agents/redmine_sync.py` when `REDMINE_API_KEY` / `REDMINE_ISSUE_ID` are set.
 
 ### Instructions
 
