@@ -18,18 +18,20 @@ The **`<YYYYMMDD>`** segment (8 digits after the first `-`) is used to place arc
 | **feat**     | Feature-sized task (optional parallel queue). |
 | **wip**      | Work in progress until implemented. When implemented rename **WIP*.md** to **UNTESTED*.md** |
 | **untested** | Implementation done; **Testing instructions** appended; waiting for tester. |
-| **testing**  | Tester is running verification. |
+| **testing**  | Tester is running verification. Lives under **`agents/testing/active/`**, not `agents/tasks/`. |
 | **closed**   | Verified; ready for closing reviewer to archive. |
 
 ## Flow
 
 ```text
   new   ─┐
-         ├─→  wip  →  untested  →  testing  →  closed  →  done/YYYY/MM/DD/
+         ├─→  wip  →  untested  →  testing/active/TESTING-…  →  closed  →  done/YYYY/MM/DD/
   feat  ─┘
 ```
 
 Do not skip statuses. On test failure: **testing → wip** (coder fixes), then **wip → untested** again when ready.
+
+**Tester home:** see **`agents/testing/README.md`**. Move **`UNTESTED-…`** → **`agents/testing/active/TESTING-…`** when verification starts; on outcome move to **`agents/tasks/CLOSED-…`** or **`WIP-…`**. Do not leave **`TESTING-*`** in **`agents/tasks/`**.
 
 ## Archiving closed tasks (`done/` layout)
 
@@ -60,6 +62,8 @@ See **`done/README.md`** for a short index of the archive tree (when present).
 
 - **new → wip** / **feat → wip** when work starts.
 - **wip → untested** when implementation is complete and **Testing instructions** are at the end of the task file.
-- **untested → testing** when the tester starts.
-- **testing → closed** when verification passes: rename **`TESTING-…`** → **`CLOSED-…`** (keep the same **`YYYYMMDD-HHMM-slug`**; only change the status prefix). On failure, **testing → wip**.
+- **untested → testing** when the tester starts: move into **`agents/testing/active/TESTING-…`**.
+- **testing → closed** when verification passes: move **`TESTING-…`** → **`agents/tasks/CLOSED-…`** (keep the same **`YYYYMMDD-HHMM-slug`**; only change the status prefix). On failure, **testing → wip** under **`agents/tasks/`**.
 - **closed → done/YYYY/MM/DD/** after the closing summary is added (use **`move-agent-task-to-done.sh`** or an equivalent `mkdir` + `mv`).
+
+**Standing rules:** always test after runtime changes; always skim related logs (`AGENT_DOCKER_CONTAINERS` / optional **`agents/log-monitor/`**).

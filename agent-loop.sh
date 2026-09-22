@@ -9,11 +9,13 @@
 #
 # Project adaptation: see agents/IFNEWMUST.md (fill AGENT_* env / prompts per install).
 # Task dir: agents/tasks/ (sibling of this script).
+# In-flight tests: agents/testing/active/TESTING-*.md
 
 set -euo pipefail
 
 SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 TASKDIR="${SCRIPTDIR}/tasks"
+TESTING_ACTIVE_DIR="${SCRIPTDIR}/testing/active"
 REPO_ROOT="$(cd "${SCRIPTDIR}/.." && pwd)"
 # Optional project overrides: agents/autoagents.env (never commit secrets).
 if [[ -f "${SCRIPTDIR}/autoagents.env" ]]; then
@@ -36,9 +38,14 @@ MKT_REVIEW_FILE="${SCRIPTDIR}/005-marketing-repos-reviewer/time-of-last-review.t
 MKT_PREFLIGHT="${REPO_ROOT}/scripts/marketing-repos-preflight.sh"
 ENH_REVIEW_FILE="${SCRIPTDIR}/008-enhancement-reviewer/time-of-last-review.txt"
 ENH_PREFLIGHT="${REPO_ROOT}/scripts/enhancement-reviewer-preflight.sh"
+QUALITY_REVIEW_FILE="${SCRIPTDIR}/007-quality-monitor/time-of-last-review.txt"
 # Set AGENT_ENABLE_005=0 / AGENT_ENABLE_008=0 to skip optional project-specific steps.
 AGENT_ENABLE_005="${AGENT_ENABLE_005:-0}"
 AGENT_ENABLE_008="${AGENT_ENABLE_008:-1}"
+# Optional log-monitor (file log) and weekly quality monitor.
+AGENT_ENABLE_LOG_MONITOR="${AGENT_ENABLE_LOG_MONITOR:-0}"
+AGENT_ENABLE_007="${AGENT_ENABLE_007:-0}"
+AGENT_LOG_PATH="${AGENT_LOG_PATH:-}"
 
 cd "$SCRIPTDIR" || exit 1
 
@@ -382,6 +389,27 @@ any_root_task_glob() {
   return 1
 }
 
+# True if agents/testing/active/ has ≥1 file matching any glob (e.g. TESTING-*.md).
+any_testing_active_glob() {
+  mkdir -p "$TESTING_ACTIVE_DIR" 2>/dev/null || true
+  shopt -s nullglob
+  local g matches
+  for g in "$@"; do
+    matches=("$TESTING_ACTIVE_DIR"/$g)
+    if (( ${#matches[@]} > 0 )); then
+      shopt -u nullglob
+      return 0
+    fi
+  done
+  shopt -u nullglob
+  return 1
+}
+
+# Tester has work: UNTESTED in tasks/ or in-flight TESTING under testing/active/.
+any_tester_work() {
+  any_root_task_glob 'UNTESTED-*.md' || any_testing_active_glob 'TESTING-*.md'
+}
+
 has_repo_uncommitted_changes() {
   ( cd "$REPO_ROOT" && { ! git diff --quiet 2>/dev/null || ! git diff --staged --quiet 2>/dev/null; } )
 }
@@ -406,6 +434,8 @@ committer_paths_all_local_stamp_allowlist() {
       agents/005-marketing-repos-reviewer/last-scan.json) ;;
       agents/008-enhancement-reviewer/time-of-last-review.txt) ;;
       agents/008-enhancement-reviewer/last-scan.json) ;;
+      agents/007-quality-monitor/time-of-last-review.txt) ;;
+      agents/log-monitor/last-scan.md) ;;
       *) return 1 ;;
     esac
   done < <(committer_changed_paths)
@@ -771,8 +801,8 @@ step_coder() {
 }
 
 step_tester() {
-  if ! any_root_task_glob 'UNTESTED-*.md' 'TESTING-*.md'; then
-    echo "----- testing (skip: no UNTESTED-*.md or TESTING-*.md — no sync, no agent)"
+  if ! any_tester_work; then
+    echo "----- testing (skip: no UNTESTED-*.md or testing/active/TESTING-*.md — no sync, no agent)"
     return 0
   fi
   if ! sync_repo; then
@@ -781,10 +811,65 @@ step_tester() {
   fi
   echo "-----> testing <----"
   run_agent "testing" \
-    "any_root_task_glob 'UNTESTED-*.md' 'TESTING-*.md'" \
+    "any_tester_work" \
     "020-test.md" \
-    "Start testing now. Prefer an UNTESTED task (rename to TESTING on start); if only TESTING-*.md remains, finish it — append Test report, then CLOSED (pass) or WIP (fail). Do your job." \
+    "Start testing now. Prefer agents/tasks/UNTESTED-*.md → move to agents/testing/active/TESTING-*.md on start; if only testing/active/TESTING-*.md remains, finish it — append Test report, then move to agents/tasks/CLOSED (pass) or WIP (fail). Do your job." \
     "testing"
+}
+
+step_log_monitor() {
+  if [[ "${AGENT_ENABLE_LOG_MONITOR}" == "0" ]]; then
+    echo "----- log-monitor (skip: AGENT_ENABLE_LOG_MONITOR=0)"
+    return 0
+  fi
+  if [[ -z "${AGENT_LOG_PATH}" ]]; then
+    echo "----- log-monitor (skip: AGENT_LOG_PATH unset)"
+    return 0
+  fi
+  if ! sync_repo; then
+    echo "----- log-monitor (skip: git sync failed)" >&2
+    return 0
+  fi
+  echo "-----> log-monitor <----"
+  run_agent "log-monitor" \
+    "true" \
+    "log-monitor/PROMPT.md" \
+    "Scan AGENT_LOG_PATH for product-owned errors. Write new findings under agents/agents-tasks/ as log-NNN-topic.md; update agents-tasks/README.md; do not truncate the log. Do your job." \
+    "log"
+}
+
+# Roughly weekly quality gate: run when stamp missing or ≥6 days old.
+should_run_007_quality() {
+  [[ "${AGENT_QUALITY_MONITOR_ALWAYS:-0}" == "1" ]] && return 0
+  [[ "${AGENT_007_SKIP_PREFLIGHT:-0}" == "1" ]] && return 0
+  local stamp="$QUALITY_REVIEW_FILE"
+  if [[ ! -f "$stamp" ]]; then
+    return 0
+  fi
+  local age_days
+  age_days=$(( ( $(date +%s) - $(stat -c %Y "$stamp" 2>/dev/null || stat -f %m "$stamp" 2>/dev/null || echo 0) ) / 86400 ))
+  (( age_days >= 6 ))
+}
+
+step_quality_monitor() {
+  if [[ "${AGENT_ENABLE_007}" == "0" ]]; then
+    echo "----- quality monitor (007) (skip: AGENT_ENABLE_007=0)"
+    return 0
+  fi
+  if ! should_run_007_quality; then
+    echo "----- quality monitor (007) (skip: last run < 6 days; set AGENT_QUALITY_MONITOR_ALWAYS=1 to force)"
+    return 0
+  fi
+  if ! sync_repo; then
+    echo "----- quality monitor (007) (skip: git sync failed)" >&2
+    return 0
+  fi
+  echo "-----> quality monitor (007) <----"
+  run_agent "quality-monitor (007)" \
+    "true" \
+    "007-quality-monitor/PROMPT.md" \
+    "Run python3 agents/007-quality-monitor/scan_repo_quality.py from the host repo root. Fix fails; re-scan until clean or only documented warns remain. Append a one-line UTC stamp to agents/007-quality-monitor/time-of-last-review.txt. Do your job." \
+    "enhancement"
 }
 
 step_closing_review() {
@@ -849,8 +934,10 @@ step_committer() {
 run_full_cycle() {
   echo "$(date)"
   step_log_reviewer
+  step_log_monitor
   step_marketing_repos
   step_enhancement_reviewer
+  step_quality_monitor
   local i=0
   local has_feat
   while (( i < 5 )); do
@@ -880,12 +967,14 @@ Usage: $(basename "$0") [COMMAND]
 
   Single run:
     log, log-reviewer, 001   GitHub / log incident reviewer (001; runs first in full cycle)
+    log-monitor              Optional file-log scanner (AGENT_ENABLE_LOG_MONITOR + AGENT_LOG_PATH)
     marketing, mkt, 005      Satellite/marketing repos reviewer (optional; AGENT_ENABLE_005=0 to disable)
     enhancement, enhance, 008  Enhancement reviewer (weekly docs/demo/queue sweep → FEAT-0 / NEW-0)
+    quality, 007             Repo quality monitor (root clutter; AGENT_ENABLE_007=1)
     feat, feature   Feature coder (FEAT-*.md in agents/tasks/)
     coder           Coder (NEW-*.md or WIP-*.md)
     handoff, 012    Feature-coder handoff (WIP-*.md → verify complete → UNTESTED-*.md)
-    tester          Tester (UNTESTED-*.md or in-progress TESTING-*.md)
+    tester          Tester (UNTESTED-*.md or in-progress testing/active/TESTING-*.md)
     closing-review  Closing reviewer (CLOSED-*.md still in agents/tasks/)
     committer       Changelog + commit when the repo has local changes
 
@@ -894,7 +983,10 @@ Usage: $(basename "$0") [COMMAND]
 Environment (see agents/IFNEWMUST.md and agents/autoagents.env.example):
   AGENT_GH_REPO              GitHub owner/repo for gh issue list (required for 001).
   AGENT_DOCKER_CONTAINERS    Space-separated container names for 001 log heuristics.
+  AGENT_LOG_PATH             Optional on-disk app log for log-monitor.
+  AGENT_ENABLE_LOG_MONITOR   If 1, run log-monitor when AGENT_LOG_PATH is set (default: 0).
   AGENT_ENABLE_005           If 0, skip satellite/marketing reviewer (default: 0).
+  AGENT_ENABLE_007           If 1, run weekly quality monitor (default: 0).
   AGENT_ENABLE_008           If 0, skip enhancement reviewer (default: 1).
   AGENT_LOOP_SLEEP_MINUTES   Sleep between full cycles when looping (default: 5).
   AGENT_GIT_SYNC             If 0, skip git fetch/pull before each step (default: 1).
@@ -910,7 +1002,8 @@ Environment (see agents/IFNEWMUST.md and agents/autoagents.env.example):
   AGENT_TESTER_TIMEOUT_MINUTES     Tester step limit (default: 32).
   AGENT_FEAT_TIMEOUT_MINUTES       Feature coder limit.
   AGENT_CODER_TIMEOUT_MINUTES      Main coder limit.
-  AGENT_REVIEWER_TIMEOUT_MINUTES   001 / 005 / 008 limit.
+  AGENT_REVIEWER_TIMEOUT_MINUTES   001 / 005 / 008 / log-monitor limit.
+  AGENT_QUALITY_MONITOR_ALWAYS / AGENT_007_SKIP_PREFLIGHT
   AGENT_MARKETING_REVIEWER_ALWAYS / AGENT_005_SKIP_PREFLIGHT / AGENT_ENHANCEMENT_REVIEWER_ALWAYS / AGENT_008_SKIP_PREFLIGHT
   On timeout the loop continues (exit 124); TESTING-/WIP- tasks are retried on the next cycle.
 
@@ -918,7 +1011,9 @@ App stack: start separately (project run/dev script). Adaptation guide: agents/I
 
 Git: FEAT/NEW-WIP/tester/closing/committer run scripts/git-sync-development.sh only when that step has work. 001 syncs when its gate opens.
 
-Prompt files in this directory (agents/): 001-gh-reviewer.md, 005-marketing-repos-reviewer.md (optional), 008-enhancement-reviewer.md, 010-feature-coder.md, 012-feature-coder-handoff.md, 020-test.md, 030-closing-reviewer.md, 040-committer.md; task naming: TASKS-README.md. Main coder (NEW/WIP): 002-coder/CODER.md if present.
+Standing rules: always test after runtime changes; always skim related logs.
+
+Prompt files in this directory (agents/): README.md, 001-gh-reviewer.md, 005-marketing-repos-reviewer.md (optional), 007-quality-monitor/, log-monitor/, 008-enhancement-reviewer.md, 010-feature-coder.md, 012-feature-coder-handoff.md, 020-test.md, 030-closing-reviewer.md, 040-committer.md; testing/; workspace/; agents-tasks/; task naming: TASKS-README.md. Main coder (NEW/WIP): 002-coder/CODER.md if present.
 EOF
 }
 
@@ -929,8 +1024,10 @@ if [[ -n "${1:-}" ]]; then
       exit 0
       ;;
     log | log-reviewer | 001) step_log_reviewer ;;
+    log-monitor) step_log_monitor ;;
     marketing | mkt | 005) step_marketing_repos ;;
     enhancement | enhance | 008) step_enhancement_reviewer ;;
+    quality | 007 | quality-monitor) step_quality_monitor ;;
     feat | feature) step_feat ;;
     coder) step_coder ;;
     handoff | 012 | feature-handoff) step_feature_coder_handoff ;;

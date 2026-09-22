@@ -51,6 +51,9 @@ AGENT_PRODUCTION_BRANCH=master         # or main
 APP_CODE_DIRS="path1/ path2/"          # real trees agents may edit
 AGENT_DOCKER_CONTAINERS="c1 c2 c3"     # empty string disables 001 Docker log pass
 AGENT_ENABLE_005=0                     # 1 only if satellite repos are in scope
+AGENT_ENABLE_LOG_MONITOR=0             # 1 + AGENT_LOG_PATH for file-log scanner
+# AGENT_LOG_PATH=var/log/app.log
+AGENT_ENABLE_007=0                     # 1 to enable weekly root-hygiene quality monitor
 AGENT_ENABLE_008=1                     # 0 if no weekly enhancement role
 ```
 
@@ -81,11 +84,14 @@ AGENT_ENABLE_008=1                     # 0 if no weekly enhancement role
 | `008-enhancement-reviewer.md` | Demo/seed commands, production host names, preflight script paths |
 | `010-feature-coder.md` | APP_CODE_DIRS, satellite prefix rules, debug log containers |
 | `012-feature-coder-handoff.md` | Deploy blocker rules for **this** CI |
-| `020-test.md` | Compose files, `BASE_URL`, health endpoints, deploy workflow names |
+| `020-test.md` | Compose files, `BASE_URL`, health endpoints, deploy workflow names; keep **`testing/active/`** for in-flight `TESTING-*` |
 | `030-closing-reviewer.md` | Paths stay `agents/tasks/…`; archive script path |
 | `040-committer.md` | Version files, changelog presence, branch names |
+| `log-monitor/PROMPT.md` | Only if `AGENT_ENABLE_LOG_MONITOR=1` — set real `AGENT_LOG_PATH` |
+| `007-quality-monitor/` | Optional; keep stack-agnostic (no framework skills) |
 | `issue_checker_agent.py` | Uses `AGENT_GH_REPO` — no hardcoded owner/repo |
 | `TASKS-README.md` | Keep pipeline; only adjust helper script paths if different |
+| `README.md` / `workspace/` | Standing rules + session scratch; leave blank lessons until install-specific |
 
 ### Host repo companions (outside `agents/`, create if missing)
 
@@ -184,6 +190,9 @@ When you (the adapting agent) run against a new project, your deliverable is:
 | `AGENT_PRODUCTION_BRANCH` | Release branch |
 | `APP_CODE_DIRS` | Trees coders may edit |
 | `AGENT_ENABLE_005` | `0`/`1` satellite reviewer |
+| `AGENT_ENABLE_LOG_MONITOR` | `0`/`1` file-log monitor (`log-monitor/`) |
+| `AGENT_LOG_PATH` | On-disk app log for log-monitor |
+| `AGENT_ENABLE_007` | `0`/`1` weekly quality monitor |
 | `AGENT_ENABLE_008` | `0`/`1` enhancement reviewer |
 | `AGENT_LOOP_SLEEP_MINUTES` | Loop interval |
 | `AGENT_GIT_SYNC` | `0` skips sync |
@@ -199,8 +208,10 @@ See `agents/agent-loop.sh help` for the full list.
 - Renaming the loop back to a product prefix.
 - Keeping `agents2/` path strings.
 - Enabling 005 “just in case” without a satellite inventory.
+- Copying host-product **skills** or language/framework recommendation packs into this package.
 - Putting tokens in `autoagents.env.example` or committing `autoagents.env`.
 - Skipping GitHub label creation and then failing every `gh issue edit --add-label`.
+- Leaving `TESTING-*` in `agents/tasks/` instead of `agents/testing/active/`.
 
 ---
 

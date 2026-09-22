@@ -29,7 +29,7 @@ Do **not** duplicate **001**: skip issues already tracked by **001** (open issue
 1. **Preflight digest** — prioritize **`SIGNAL`** lines.
 2. **Docs vs code** — skim **`docs/*.md`**, **`README.md`**, **`CHANGELOG.md` [Unreleased]** against recent APP_CODE_DIRS changes (do not bulk-rewrite docs; note gaps only).
 3. **Demo / seed health** — if the project has demo tenants or seed scripts, check freshness and documented reset paths.
-4. **Task queue health** — many **`WIP-*`** / **`TESTING-*`** → prefer **`NEW-*`** for tiny fixes only; defer large **`FEAT-*`** until backlog drains.
+4. **Task queue health** — many **`WIP-*`** / **`agents/testing/active/TESTING-*`** → prefer **`NEW-*`** for tiny fixes only; defer large **`FEAT-*`** until backlog drains.
 5. **Open improvement themes** — recurring friction in seeds, deploy scripts, agent prompts, i18n gaps (one finding per theme).
 
 ### Task creation rules
@@ -42,7 +42,7 @@ Create **at most 3** task files per run. Prefer **`FEAT-*`** for enhancements; u
 
 **Dedupe:** skip if any root **`agents/tasks/*.md`** or archived **`done/*/*/*/*.md`** already covers the same topic (grep slug keywords).
 
-**Do not** create tasks for work already in **`WIP-*`** / **`UNTESTED-*`** / **`TESTING-*`**.
+**Do not** create tasks for work already in **`WIP-*`** / **`UNTESTED-*`** / **`agents/testing/active/TESTING-*`**.
 
 ### Your output (summary)
 
